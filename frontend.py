@@ -12,7 +12,6 @@ import streamlit as st
 import requests
 
 # API_URL = "http://localhost:8000"
-# API_URL = "http://192.168.1.15:8000"
 API_URL = "https://unsettled-vowed-oink.ngrok-free.dev"
 
 # ── Regex for image placeholders ─────────────
