@@ -10,10 +10,10 @@ import uuid
 
 import streamlit as st
 import requests
-from ingestion.config import TOP_K_RESULTS
+# from ingestion.config import TOP_K_RESULTS
 
 # ── Top K ──────────────────────────────────
-top_k = TOP_K_RESULTS
+top_k = 10
 
 # API_URL = "http://localhost:8000"
 API_URL = "https://unsettled-vowed-oink.ngrok-free.dev"
