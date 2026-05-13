@@ -10,6 +10,10 @@ import uuid
 
 import streamlit as st
 import requests
+from ingestion.config import TOP_K_RESULTS
+
+# ── Top K ──────────────────────────────────
+top_k = TOP_K_RESULTS
 
 # API_URL = "http://localhost:8000"
 API_URL = "https://unsettled-vowed-oink.ngrok-free.dev"
@@ -66,37 +70,11 @@ st.markdown("""
     font-size: 0.82rem;
     color: #888;
   }
+
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ──────────────────────────────────
-top_k = 10
-# with st.sidebar:
-#     st.markdown("## 💬 HubBroker RAG")
-#     st.caption("Ask anything about HubBroker documentation.")
-#     st.divider()
 
-#     top_k = st.slider("Chunks to retrieve", min_value=1, max_value=30, value=10)
-
-#     if st.button("🗑️  Clear chat", use_container_width=True):
-#         st.session_state.messages = []
-#         # Generate a new thread_id to start a fresh conversation
-#         st.session_state.thread_id = str(uuid.uuid4())
-#         st.rerun()
-
-#     st.divider()
-
-#     # Health check
-#     try:
-#         health = requests.get(f"{API_URL}/health", timeout=3)
-#         if health.status_code == 200:
-#             st.success("API server online", icon="🟢")
-#         else:
-#             st.error("API returned unexpected status", icon="🔴")
-#     except requests.ConnectionError:
-#         st.error("API server unreachable — start it with:\n\n`uvicorn app:app --port 8000`", icon="🔴")
-
-#     st.caption("Powered by Ollama + LangGraph + PostgreSQL")
 
 # ── Session state ────────────────────────────
 
@@ -158,12 +136,14 @@ prompt = st.chat_input("Ask a question…")
 question = pending or prompt
 
 if question:
-    # Show user message
+    # Save user message and show spinner while calling API
     st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user", avatar="🧑‍💻"):
         st.markdown(question)
 
-    # Call API
+    # Call API — only show a spinner, no answer rendered here.
+    # The answer is saved to session_state and st.rerun() re-renders
+    # everything via the history loop, avoiding stale/duplicate content.
     with st.chat_message("assistant", avatar="🤖"):
         with st.spinner("Thinking…"):
             try:
@@ -179,29 +159,11 @@ if question:
                 resp.raise_for_status()
                 data = resp.json()
 
-                render_answer_with_images(data["answer"])
-
                 sources = data.get("sources", [])
-                if sources:
-                    with st.expander(f"📄 {len(sources)} source(s)"):
-                        for i, s in enumerate(sources, 1):
-                            heading = f" — {s['heading']}" if s.get("heading") else ""
-                            if s.get("article_url"):
-                                st.markdown(
-                                    f"**[{i}]** [{s['heading'] or s['file_name']}]({s['article_url']})  "
-                                    f"·  _{s['category']}{heading}_"
-                                )
-                            else:
-                                st.markdown(
-                                    f"**[{i}]** {s['file_name']}  ·  p.{s['page_number']}  "
-                                    f"·  _{s['category']}{heading}_"
-                                )
-
                 rewritten = data.get("rewritten_query", "")
                 meta = f"{data['chunks_retrieved']} chunks · {data['model']}"
                 if rewritten and rewritten != question:
                     meta += f"  ·  🔄 _{rewritten}_"
-                st.caption(meta)
 
                 st.session_state.messages.append({
                     "role": "assistant",
@@ -212,9 +174,10 @@ if question:
 
             except requests.ConnectionError:
                 err = "⚠️ Cannot reach the API server. Make sure it's running on port 8000."
-                st.error(err)
                 st.session_state.messages.append({"role": "assistant", "content": err})
             except Exception as e:
                 err = f"⚠️ Error: {e}"
-                st.error(err)
                 st.session_state.messages.append({"role": "assistant", "content": err})
+
+    # Rerun so the history loop renders the new answer cleanly
+    st.rerun()
